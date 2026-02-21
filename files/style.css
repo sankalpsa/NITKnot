@@ -372,7 +372,7 @@ select.input-field option { background: #1a1a22; }
 
 .swipe-area {
   flex: 1; display: flex; flex-direction: column;
-  padding: 12px 16px 16px; gap: 12px; overflow: hidden;
+  padding: 8px 16px 12px; gap: 10px; overflow: hidden; min-height: 0;
 }
 
 .card-stack {
@@ -382,12 +382,14 @@ select.input-field option { background: #1a1a22; }
 
 .swipe-card {
   position: absolute; width: 100%;
-  max-height: calc(100vh - var(--nav-height) - 180px);
+  height: 100%;
+  max-height: calc(100vh - var(--nav-height) - 160px);
   background: var(--bg-card); border-radius: var(--radius-xl);
   overflow: hidden; box-shadow: var(--shadow-lg);
   cursor: grab; user-select: none;
   border: 1px solid var(--border);
   transition: transform 0.1s ease;
+  display: flex; flex-direction: column;
 }
 .swipe-card:active { cursor: grabbing; }
 .swipe-card.behind { transform: scale(0.96) translateY(8px); z-index: -1; }
@@ -395,7 +397,7 @@ select.input-field option { background: #1a1a22; }
 .swipe-card.swiping { transition: none; }
 .swipe-card.animating { transition: transform 0.35s ease, opacity 0.35s ease; }
 
-.card-photo-area { position: relative; width: 100%; height: 300px; flex-shrink: 0; }
+.card-photo-area { position: relative; width: 100%; height: clamp(200px, 45vw, 300px); flex-shrink: 0; min-height: 0; }
 .card-photo-area img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .card-gradient-bottom {
@@ -435,7 +437,7 @@ select.input-field option { background: #1a1a22; }
 .swipe-label-nope { right: 16px; color: #ef4444; border-color: #ef4444; transform: rotate(20deg); }
 .swipe-label-super { left: 50%; transform: translateX(-50%); color: #3b82f6; border-color: #3b82f6; }
 
-.card-body { padding: 12px 16px 16px; }
+.card-body { padding: 10px 14px 12px; flex: 1; overflow: hidden; min-height: 0; }
 .card-bio { font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 10px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 .card-tag { padding: 4px 10px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-full); font-size: 0.75rem; color: var(--text-secondary); }
@@ -921,24 +923,70 @@ select.input-field option { background: #1a1a22; }
 }
 
 /* ========================================
-   Crop Modal
+   Crop Modal — Canvas-based, no library
    ======================================== */
-.modal-overlay {
-  position: fixed; inset: 0; z-index: 8500;
-  background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+.crop-modal-overlay {
+  position: fixed; inset: 0; z-index: 9000;
+  background: rgba(0,0,0,0.95);
   display: flex; align-items: center; justify-content: center;
-  padding: 20px;
+  padding: 0;
 }
-.modal-overlay.hidden { display: none; }
+.crop-modal-overlay.hidden { display: none; }
 
-.modal-content {
-  background: var(--bg-card); border-radius: var(--radius-xl);
-  border: 1px solid var(--border); padding: 24px;
-  width: 100%; max-width: 440px;
+.crop-modal-box {
+  background: #111;
+  border-radius: 20px;
+  width: min(440px, 100vw);
+  max-height: 100dvh;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.8);
 }
-.crop-container h3 { font-size: 1.1rem; font-weight: 700; }
-.crop-area { height: 300px; overflow: hidden; border-radius: var(--radius-lg); background: #000; }
-.crop-area img { max-width: 100%; max-height: 100%; }
+
+.crop-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0;
+}
+.crop-modal-header h3 {
+  font-size: 1rem; font-weight: 700; color: #fff;
+}
+.crop-close-btn {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(255,255,255,0.1); border: none;
+  color: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s;
+}
+.crop-close-btn:hover { background: rgba(255,255,255,0.2); }
+.crop-close-btn .material-symbols-outlined { font-size: 18px; }
+
+/* The canvas IS the crop area — it sizes itself in JS */
+#crop-canvas {
+  display: block;
+  cursor: grab;
+  touch-action: none;
+  flex-shrink: 0;
+  background: #000;
+  /* Canvas sets its own width/height in px */
+  max-width: 100%;
+}
+#crop-canvas:active { cursor: grabbing; }
+
+.crop-hint {
+  text-align: center; font-size: 0.72rem;
+  color: rgba(255,255,255,0.4);
+  padding: 8px 16px;
+  flex-shrink: 0;
+}
+
+.crop-modal-actions {
+  display: flex; gap: 12px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  flex-shrink: 0;
+}
 
 /* ========================================
    Loading Spinner
@@ -1009,3 +1057,257 @@ select.input-field option { background: #1a1a22; }
   width: 36px; height: 36px; border-radius: 6px;
   object-fit: cover; border: 1px solid var(--border);
 }
+
+/* ========================================================
+   RESPONSIVE DESKTOP LAYOUT
+   Mobile (<768px): bottom nav, full-width, phone style
+   Desktop (>=768px): sidebar nav, two-panel layout
+   ======================================================== */
+
+@media (min-width: 768px) {
+  /* Reset mobile-only constraints */
+  html, body { overflow: auto; }
+
+  .app-container {
+    max-width: 100%;
+    height: 100vh;
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    grid-template-rows: 1fr;
+    overflow: hidden;
+  }
+
+  /* ---- Sidebar Nav (replaces bottom nav on desktop) ---- */
+  .bottom-nav {
+    position: static !important;
+    transform: none !important;
+    width: 240px !important;
+    max-width: 240px !important;
+    height: 100vh !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    padding: 24px 12px !important;
+    gap: 4px !important;
+    border-top: none !important;
+    border-right: 1px solid var(--border) !important;
+    background: rgba(15,15,19,0.98) !important;
+    grid-column: 1;
+    grid-row: 1;
+    overflow: hidden;
+    z-index: 100;
+  }
+
+  /* Logo in sidebar */
+  .bottom-nav::before {
+    content: '💕 NITKnot';
+    display: block;
+    font-family: 'Playfair Display', serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--primary);
+    padding: 8px 12px 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+    letter-spacing: -0.3px;
+  }
+
+  .nav-item {
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+    gap: 12px !important;
+    padding: 12px 16px !important;
+    border-radius: var(--radius-md) !important;
+    width: 100% !important;
+    min-height: unset !important;
+    height: 48px !important;
+    position: relative;
+  }
+  .nav-item .material-symbols-outlined { font-size: 22px !important; }
+  .nav-label {
+    font-size: 0.95rem !important;
+    font-weight: 500 !important;
+    opacity: 1 !important;
+  }
+  .nav-item.active {
+    background: var(--primary-soft) !important;
+    color: var(--primary) !important;
+  }
+  .nav-item:hover:not(.active) { background: var(--bg-elevated); }
+
+  /* Badge repositioned for sidebar */
+  .nav-badge {
+    position: absolute !important;
+    right: 12px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    left: unset !important;
+  }
+
+  /* ---- Main content area ---- */
+  #app {
+    grid-column: 2;
+    grid-row: 1;
+    overflow: hidden;
+    height: 100vh;
+  }
+
+  /* Pages get more breathing room on desktop */
+  .page-scroll {
+    height: 100vh !important;
+    max-height: 100vh;
+  }
+
+  /* Discover page — centered card with sidebar */
+  .discover-page {
+    height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr;
+  }
+  .discover-header {
+    display: none; /* sidebar already has logo/branding */
+  }
+  .swipe-area {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 48px;
+    padding: 32px 48px;
+    height: 100%;
+  }
+  .card-stack {
+    width: min(380px, 45vw);
+    height: min(560px, 80vh);
+    flex-shrink: 0;
+  }
+  .swipe-card { max-height: 100%; }
+  .card-photo-area { height: 360px; }
+
+  /* Action buttons go beside the card on desktop */
+  .swipe-actions {
+    flex-direction: column;
+    gap: 20px;
+  }
+  .action-btn.large { width: 72px; height: 72px; }
+  .action-btn.medium { width: 60px; height: 60px; }
+  .action-btn.small { width: 52px; height: 52px; }
+
+  /* Likes page — grid layout */
+  .likes-page .page-header,
+  .connections-page .page-header,
+  .chat-page .page-header { padding: 24px 32px 16px; }
+  .connections-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
+    gap: 16px !important;
+    padding: 0 32px 32px !important;
+  }
+
+  /* Chat list — two-panel layout */
+  .chat-page {
+    display: grid !important;
+    grid-template-columns: 340px 1fr !important;
+    grid-template-rows: auto 1fr !important;
+    height: 100vh !important;
+  }
+  .chat-page .page-header {
+    grid-column: 1;
+    grid-row: 1;
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+  }
+  .chat-search-bar {
+    grid-column: 1;
+    grid-row: 2;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  /* Wait — the chat list needs a different structure for two-panel */
+  /* We'll handle this via JS */
+
+  /* Profile page wider */
+  .profile-page { max-width: 680px; margin: 0 auto; }
+  .profile-hero { height: 360px; }
+  .profile-stats { grid-template-columns: repeat(3, 1fr); }
+
+  /* Auth pages centered card */
+  .auth-container {
+    max-width: 420px !important;
+    margin: 40px auto !important;
+  }
+
+  /* Modals — larger on desktop */
+  .crop-modal-box { max-width: 520px; }
+  .match-content { max-width: 460px; }
+}
+
+@media (min-width: 1200px) {
+  .app-container {
+    grid-template-columns: 280px 1fr;
+  }
+  .bottom-nav { width: 280px !important; max-width: 280px !important; }
+  .card-stack { width: 400px; height: min(600px, 80vh); }
+  .card-photo-area { height: 400px; }
+  .connections-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
+  }
+}
+
+/* ===== Desktop chat page two-panel ===== */
+@media (min-width: 768px) {
+  .chat-convo-page {
+    height: 100vh !important;
+  }
+  /* Chat convo header */
+  .chat-header {
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+/* Undo button */
+.action-btn.undo { border-color: rgba(245,158,11,0.4); }
+.action-btn.undo:hover { border-color: rgba(245,158,11,0.8); }
+
+/* Desktop sidebar bottom section — user avatar */
+@media (min-width: 768px) {
+  .bottom-nav::after {
+    content: '';
+    flex: 1;
+  }
+  /* Chat list item hover on desktop */
+  .chat-item:hover { background: var(--bg-elevated); }
+  /* Connection card hover */
+  .connection-card:hover img { transform: scale(1.04); }
+  /* Discover info panel beside card on large screen */
+  .discover-side-info {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 260px;
+    width: 100%;
+  }
+  .discover-tip-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 20px;
+  }
+  .discover-tip-card h4 {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+  .discover-tip-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+  }
+  .discover-tip-item:last-child { border: none; }
+  .discover-tip-item .material-symbols-outlined { font-size: 18px; flex-shrink: 0; }
+}
+
+/* Mobile — hide side info */
+.discover-side-info { display: none; }

@@ -719,7 +719,7 @@ app.post('/api/messages/:matchId', authenticate,
                             transformation: [{ width: 1200, quality: 'auto' }]
                         });
                         imageUrl = result.secure_url;
-                        fs.unlink(imageFile.path, () => { });
+                        fs.unlink(imageFile.path, () => {});
                     } catch { imageUrl = `/uploads/${imageFile.filename}`; }
                 } else {
                     imageUrl = `/uploads/${imageFile.filename}`;
