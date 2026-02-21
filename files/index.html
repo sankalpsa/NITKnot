@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NITKnot — Campus Connections</title>
+  <meta name="description" content="NITKnot - Connect with fellow NITK students. Swipe, match, and chat.">
+  <meta name="theme-color" content="#ee2b9d">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0..1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/cropperjs/dist/cropper.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app" class="app-container"></div>
+
+  <nav id="bottom-nav" class="bottom-nav hidden">
+    <button class="nav-item" data-view="discover" id="nav-discover">
+      <span class="material-symbols-outlined">style</span>
+      <span class="nav-label">Discover</span>
+    </button>
+    <button class="nav-item" data-view="connections" id="nav-connections">
+      <span class="material-symbols-outlined">people</span>
+      <span class="nav-label">Matches</span>
+    </button>
+    <button class="nav-item" data-view="chat" id="nav-chat">
+      <span class="material-symbols-outlined">chat_bubble</span>
+      <span class="nav-label">Messages</span>
+      <span class="nav-badge hidden" id="nav-chat-badge">0</span>
+    </button>
+    <button class="nav-item" data-view="likes" id="nav-likes">
+      <span class="material-symbols-outlined">favorite</span>
+      <span class="nav-label">Likes</span>
+    </button>
+    <button class="nav-item" data-view="profile" id="nav-profile">
+      <span class="material-symbols-outlined">person</span>
+      <span class="nav-label">Profile</span>
+    </button>
+  </nav>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <div id="match-overlay" class="match-overlay hidden">
+    <div class="match-content">
+      <div class="match-hearts">💕</div>
+      <h2 class="match-title">It's a Match!</h2>
+      <p class="match-subtitle">You and <span id="match-name"></span> liked each other</p>
+      <div class="match-photos">
+        <img id="match-photo-me" class="match-photo" alt="You">
+        <div class="match-heart-center">❤️</div>
+        <img id="match-photo-them" class="match-photo" alt="Match">
+      </div>
+      <button class="btn-primary match-btn" onclick="closeMatch()">Keep Swiping 💫</button>
+      <button class="btn-ghost match-btn" onclick="goToMatchChat()">Send Message 💬</button>
+    </div>
+  </div>
+
+  <div id="crop-modal" class="modal-overlay hidden">
+    <div class="modal-content crop-container">
+      <h3 style="margin-bottom:16px;">Adjust Photo</h3>
+      <div class="crop-area"><img id="crop-image" src="" alt="Crop"></div>
+      <div class="modal-actions" style="margin-top:16px;display:flex;gap:12px;">
+        <button class="btn-secondary" style="flex:1" onclick="closeCropModal()">Cancel</button>
+        <button class="btn-primary" style="flex:1" onclick="saveCrop()">Save Photo</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="image-viewer" class="image-viewer-overlay hidden" onclick="closeImageViewer()">
+    <img id="image-viewer-img" src="" alt="Full size">
+    <button class="image-viewer-close" onclick="closeImageViewer()">✕</button>
+  </div>
+
+  <script src="https://unpkg.com/cropperjs/dist/cropper.min.js"></script>
+  <script>
+    // Socket.io loaded conditionally
+    window._socketReady = false;
+  </script>
+  <script src="/socket.io/socket.io.js" onerror="console.warn('Socket.io not available')"></script>
+  <script src="app.js"></script>
+</body>
+</html>

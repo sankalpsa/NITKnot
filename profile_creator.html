@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile Photo Creator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #1a1a1a;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: #2d2d2d;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        h1 {
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 250px;
+            height: 250px;
+            margin: 0 auto 1.5rem;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 4px solid #3b82f6;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+            background: #000;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .controls {
+            display: grid;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+
+        label {
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: #3b82f6;
+        }
+
+        .btn {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+
+        .btn:hover {
+            background-color: #2563eb;
+        }
+
+        .btn-secondary {
+            background-color: #4b5563;
+            margin-top: 0;
+        }
+
+        .btn-secondary:hover {
+            background-color: #374151;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Profile Creator</h1>
+
+        <div class="canvas-container">
+            <canvas id="canvas" width="250" height="250"></canvas>
+        </div>
+
+        <div class="controls">
+            <div>
+                <label for="zoom">Zoom</label>
+                <input type="range" id="zoom" min="0.5" max="3" step="0.1" value="1.5">
+            </div>
+            <div>
+                <label for="panX">Horizontal Position</label>
+                <input type="range" id="panX" min="-200" max="200" value="-50">
+            </div>
+            <div>
+                <label for="panY">Vertical Position</label>
+                <input type="range" id="panY" min="-200" max="200" value="20">
+            </div>
+        </div>
+
+        <button class="btn btn-secondary" onclick="document.getElementById('upload').click()">
+            Upload Photo
+        </button>
+        <input type="file" id="upload" accept="image/*">
+
+        <button class="btn" onclick="downloadImage()">
+            Download Profile Picture
+        </button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const upload = document.getElementById('upload');
+        const zoomInput = document.getElementById('zoom');
+        const panXInput = document.getElementById('panX');
+        const panYInput = document.getElementById('panY');
+
+        let img = new Image();
+        let loaded = false;
+
+        // Draw initially to show placeholder
+        draw();
+
+        upload.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    img.onload = () => {
+                        loaded = true;
+                        // Reset controls for new image
+                        zoomInput.value = 1.6; // Assuming left guy needs zoom
+                        panXInput.value = -30; // Shift slightly left to center him
+                        panYInput.value = 10;
+                        draw();
+                    }
+                    img.src = event.target.result;
+                }
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        });
+
+        [zoomInput, panXInput, panYInput].forEach(el => {
+            el.addEventListener('input', draw);
+        });
+
+        function draw() {
+            // clear
+            ctx.fillStyle = '#222';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (!loaded) {
+                ctx.fillStyle = '#444';
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Upload image to start', canvas.width / 2, canvas.height / 2);
+                return;
+            }
+
+            const zoom = parseFloat(zoomInput.value);
+            const panX = parseInt(panXInput.value);
+            const panY = parseInt(panYInput.value);
+
+            const w = img.width * zoom;
+            const h = img.height * zoom;
+
+            // Center the image based on pan and zoom
+            const x = (canvas.width - w) / 2 + panX * 2;
+            const y = (canvas.height - h) / 2 + panY * 2;
+
+            ctx.drawImage(img, x, y, w, h);
+        }
+
+        function downloadImage() {
+            if (!loaded) return alert('Please upload an image first!');
+            const link = document.createElement('a');
+            link.download = 'profile_photo.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+    </script>
+</body>
+
+</html>
