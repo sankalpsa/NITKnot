@@ -1893,21 +1893,56 @@ let cropper = null;
 function uploadPhoto(input) {
   if (!input.files || !input.files[0]) return;
   const file = input.files[0];
+
+  // Validate file type
+  if (!file.type.startsWith('image/')) {
+    showToast('Please select an image file', 'error');
+    return;
+  }
+
   const reader = new FileReader();
   reader.onload = e => {
+    const modal = document.getElementById('crop-modal');
     const img = document.getElementById('crop-image');
-    if (!img) return;
-    img.src = e.target.result;
-    document.getElementById('crop-modal').classList.remove('hidden');
+    if (!img || !modal) return;
+
+    // Destroy previous cropper first
     if (cropper) { cropper.destroy(); cropper = null; }
-    cropper = new Cropper(img, {
-      aspectRatio: 1, viewMode: 1, dragMode: 'move',
-      autoCropArea: 1, guides: false, center: false,
-      highlight: false, cropBoxMovable: false, cropBoxResizable: false
-    });
+
+    // Reset image src so onload fires even for same file
+    img.src = '';
+    img.onload = () => {
+      // Cropper.js needs the container to be visible and have dimensions
+      // before it initialises — use a small rAF delay
+      requestAnimationFrame(() => {
+        if (cropper) cropper.destroy();
+        cropper = new Cropper(img, {
+          aspectRatio: 1,          // Square crop (like Instagram)
+          viewMode: 1,             // Keep image within crop box bounds
+          dragMode: 'move',        // Drag moves the image, not the box
+          autoCropArea: 0.9,       // Crop box takes up 90% initially
+          restore: false,
+          guides: true,            // Show grid lines (rule of thirds)
+          center: true,
+          highlight: true,
+          cropBoxMovable: true,    // User can reposition the circle
+          cropBoxResizable: true,  // User can resize it
+          toggleDragModeOnDblclick: false,
+          minContainerWidth: 200,
+          minContainerHeight: 200,
+          checkOrientation: true,  // Fix EXIF rotation (portrait photos)
+          rotatable: false,
+          scalable: false,
+        });
+      });
+    };
+    img.src = e.target.result;
+    modal.classList.remove('hidden');
   };
+
+  reader.onerror = () => showToast('Failed to read image file', 'error');
   reader.readAsDataURL(file);
-  input.value = '';
+  input.value = ''; // Allow re-selecting same file
 }
 
 function closeCropModal() {
@@ -1916,29 +1951,63 @@ function closeCropModal() {
 }
 
 async function saveCrop() {
-  if (!cropper) return;
-  const canvas = cropper.getCroppedCanvas({ width: 600, height: 600, imageSmoothingQuality: 'high' });
-  canvas.toBlob(async (blob) => {
-    if (!blob) return showToast('Crop failed', 'error');
-    const form = new FormData();
-    form.append('photo', blob, 'profile.jpg');
-    const heroImg = document.querySelector('.profile-hero img');
-    const tmpUrl = URL.createObjectURL(blob);
-    if (heroImg) heroImg.src = tmpUrl;
-    closeCropModal();
-    showToast('Uploading photo...', 'info');
-    try {
-      const data = await apiUpload('/api/profile/photo', form);
-      const user = getCachedUser();
-      user.photo = data.photo;
-      setCachedUser(user);
-      showToast('Photo updated! 📸', 'success');
-      renderProfile();
-    } catch (e) {
-      showToast(e.message, 'error');
-      renderProfile();
+  if (!cropper) return showToast('No image to crop', 'error');
+
+  const btn = document.getElementById('save-crop-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner" style="width:18px;height:18px"></div> Saving...'; }
+
+  try {
+    const canvas = cropper.getCroppedCanvas({
+      width: 600,
+      height: 600,
+      minWidth: 256,
+      minHeight: 256,
+      fillColor: '#fff',
+      imageSmoothingEnabled: true,
+      imageSmoothingQuality: 'high',
+    });
+
+    if (!canvas) {
+      showToast('Crop failed — please try again', 'error');
+      if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined">check_circle</span>Save Photo'; }
+      return;
     }
-  }, 'image/jpeg', 0.9);
+
+    canvas.toBlob(async (blob) => {
+      if (!blob) {
+        showToast('Could not process image', 'error');
+        if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined">check_circle</span>Save Photo'; }
+        return;
+      }
+
+      // Optimistic preview — show the cropped image immediately
+      const tmpUrl = URL.createObjectURL(blob);
+      const heroImg = document.querySelector('.profile-hero img');
+      if (heroImg) heroImg.src = tmpUrl;
+
+      closeCropModal();
+      showToast('Uploading photo...', 'info');
+
+      const form = new FormData();
+      form.append('photo', blob, 'profile.jpg');
+
+      try {
+        const data = await apiUpload('/api/profile/photo', form);
+        const user = getCachedUser();
+        user.photo = data.photo;
+        setCachedUser(user);
+        showToast('Profile photo updated! 📸', 'success');
+        renderProfile();
+      } catch (e) {
+        showToast(e.message, 'error');
+        renderProfile(); // Revert optimistic update
+      }
+    }, 'image/jpeg', 0.92);
+
+  } catch (e) {
+    showToast('Crop error: ' + e.message, 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined">check_circle</span>Save Photo'; }
+  }
 }
 
 function doLogout() {

@@ -923,22 +923,57 @@ select.input-field option { background: #1a1a22; }
 /* ========================================
    Crop Modal
    ======================================== */
-.modal-overlay {
+.crop-modal-overlay {
   position: fixed; inset: 0; z-index: 8500;
-  background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+  background: rgba(0,0,0,0.92);
   display: flex; align-items: center; justify-content: center;
-  padding: 20px;
+  padding: 16px;
 }
-.modal-overlay.hidden { display: none; }
+.crop-modal-overlay.hidden { display: none; }
 
-.modal-content {
+.crop-modal-box {
   background: var(--bg-card); border-radius: var(--radius-xl);
-  border: 1px solid var(--border); padding: 24px;
+  border: 1px solid var(--border);
   width: 100%; max-width: 440px;
+  overflow: hidden; display: flex; flex-direction: column;
 }
-.crop-container h3 { font-size: 1.1rem; font-weight: 700; }
-.crop-area { height: 300px; overflow: hidden; border-radius: var(--radius-lg); background: #000; }
-.crop-area img { max-width: 100%; max-height: 100%; }
+
+.crop-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid var(--border);
+}
+.crop-modal-header h3 { font-size: 1rem; font-weight: 700; }
+.crop-close-btn {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--bg-elevated); border: none;
+  color: var(--text); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.crop-close-btn .material-symbols-outlined { font-size: 18px; }
+
+/* Square crop area — fills full modal width */
+.crop-canvas-area {
+  width: 100%; aspect-ratio: 1 / 1;
+  background: #000; position: relative;
+}
+.crop-canvas-area img { display: block; width: 100%; }
+
+.crop-hint {
+  text-align: center; font-size: 0.75rem;
+  color: var(--text-muted); padding: 8px 16px;
+}
+.crop-modal-actions {
+  display: flex; gap: 12px;
+  padding: 12px 16px 16px; border-top: 1px solid var(--border);
+}
+
+/* Cropper.js tweaks — circular preview, pink handles */
+.cropper-view-box,
+.cropper-face { border-radius: 50%; }
+.cropper-view-box { outline: 3px solid var(--primary); outline-color: rgba(238,43,157,0.9); }
+.cropper-point { background-color: var(--primary); width: 10px; height: 10px; border-radius: 50%; }
+.cropper-line { background: rgba(238,43,157,0.5); }
+.cropper-modal { background: rgba(0,0,0,0.65); }
 
 /* ========================================
    Loading Spinner
