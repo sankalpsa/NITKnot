@@ -10,7 +10,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@400,0..1&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/cropperjs/dist/cropper.min.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -66,10 +65,8 @@
         <h3>Adjust Photo</h3>
         <span style="width:44px"></span>
       </div>
-      <div class="crop-canvas-area">
-        <img id="crop-image" src="" alt="Crop">
-      </div>
-      <p class="crop-hint">Drag to move · Pinch or scroll to zoom</p>
+      <canvas id="crop-canvas"></canvas>
+      <p class="crop-hint">Drag to move &nbsp;·&nbsp; Pinch or scroll to zoom</p>
       <div class="crop-modal-actions">
         <button class="btn-secondary" style="flex:1;padding:13px" onclick="closeCropModal()">Cancel</button>
         <button class="btn-primary" style="flex:1;padding:13px" id="save-crop-btn" onclick="saveCrop()">
@@ -85,7 +82,6 @@
     <button class="image-viewer-close" onclick="closeImageViewer()">✕</button>
   </div>
 
-  <script src="https://unpkg.com/cropperjs/dist/cropper.min.js"></script>
   <script>
     // Socket.io loaded conditionally
     window._socketReady = false;

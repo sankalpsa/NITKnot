@@ -1888,13 +1888,236 @@ async function renderProfile() {
     </div>`;
 }
 
-let cropper = null;
+// ============================================================
+// CUSTOM CANVAS CROP — No external libraries, works perfectly
+// Instagram-style: drag to move, pinch/scroll to zoom
+// ============================================================
+const _crop = {
+  canvas: null, ctx: null, img: null,
+  imgX: 0, imgY: 0, imgW: 0, imgH: 0, scale: 1,
+  minScale: 1, maxScale: 4,
+  isDragging: false, lastX: 0, lastY: 0,
+  // Touch
+  lastPinchDist: 0,
+};
 
+function _cropDraw() {
+  const { canvas, ctx, img, imgX, imgY, imgW, imgH, scale } = _crop;
+  if (!ctx || !img) return;
+  const S = canvas.width;
+
+  ctx.clearRect(0, 0, S, S);
+
+  // Draw image
+  ctx.save();
+  ctx.drawImage(img, imgX, imgY, imgW * scale, imgH * scale);
+  ctx.restore();
+
+  // Dark overlay outside circle
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.beginPath();
+  ctx.rect(0, 0, S, S);
+  ctx.arc(S/2, S/2, S/2 - 4, 0, Math.PI*2, true); // cutout
+  ctx.fill('evenodd');
+  ctx.restore();
+
+  // Circle border
+  ctx.save();
+  ctx.strokeStyle = 'rgba(238,43,157,0.9)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(S/2, S/2, S/2 - 4, 0, Math.PI*2);
+  ctx.stroke();
+  ctx.restore();
+
+  // Rule-of-thirds grid inside circle
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  const r = S/2 - 4;
+  // Vertical thirds
+  for (let i = 1; i <= 2; i++) {
+    const x = S/2 - r + (2*r/3)*i;
+    // Clip to circle
+    const dy = Math.sqrt(Math.max(0, r*r - (x - S/2)**2));
+    ctx.moveTo(x, S/2 - dy);
+    ctx.lineTo(x, S/2 + dy);
+  }
+  // Horizontal thirds
+  for (let i = 1; i <= 2; i++) {
+    const y = S/2 - r + (2*r/3)*i;
+    const dx = Math.sqrt(Math.max(0, r*r - (y - S/2)**2));
+    ctx.moveTo(S/2 - dx, y);
+    ctx.lineTo(S/2 + dx, y);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function _cropClamp() {
+  // Keep image covering the full circle — no black gaps allowed
+  const S = _crop.canvas.width;
+  const w = _crop.imgW * _crop.scale;
+  const h = _crop.imgH * _crop.scale;
+
+  // Image must cover the full canvas square (circle is inscribed)
+  if (w < S) { _crop.scale = S / _crop.imgW; }
+  if (h < S) { _crop.scale = Math.max(_crop.scale, S / _crop.imgH); }
+
+  const nw = _crop.imgW * _crop.scale;
+  const nh = _crop.imgH * _crop.scale;
+
+  // Clamp position so image never leaves the square
+  _crop.imgX = Math.min(0, Math.max(S - nw, _crop.imgX));
+  _crop.imgY = Math.min(0, Math.max(S - nh, _crop.imgY));
+}
+
+function _cropInit(dataUrl) {
+  const canvas = document.getElementById('crop-canvas');
+  if (!canvas) return;
+  _crop.canvas = canvas;
+  _crop.ctx = canvas.getContext('2d');
+
+  // Make canvas square, fitting the modal width
+  const box = canvas.parentElement;
+  const size = Math.min(box.clientWidth || 360, window.innerWidth - 32);
+  canvas.width = size;
+  canvas.height = size;
+  canvas.style.width = size + 'px';
+  canvas.style.height = size + 'px';
+  canvas.style.display = 'block';
+
+  const img = new Image();
+  img.onload = () => {
+    _crop.img = img;
+
+    // Fit image to fill canvas, centered
+    const scaleX = size / img.width;
+    const scaleY = size / img.height;
+    _crop.scale = Math.max(scaleX, scaleY);
+    _crop.minScale = _crop.scale;
+    _crop.maxScale = _crop.scale * 4;
+
+    _crop.imgW = img.naturalWidth;
+    _crop.imgH = img.naturalHeight;
+
+    // Center the image
+    _crop.imgX = (size - img.naturalWidth * _crop.scale) / 2;
+    _crop.imgY = (size - img.naturalHeight * _crop.scale) / 2;
+
+    _cropClamp();
+    _cropDraw();
+  };
+  img.onerror = () => showToast('Failed to load image', 'error');
+  img.src = dataUrl;
+}
+
+// ---- Mouse events ----
+function _cropMouseDown(e) {
+  _crop.isDragging = true;
+  _crop.lastX = e.clientX;
+  _crop.lastY = e.clientY;
+}
+function _cropMouseMove(e) {
+  if (!_crop.isDragging) return;
+  _crop.imgX += e.clientX - _crop.lastX;
+  _crop.imgY += e.clientY - _crop.lastY;
+  _crop.lastX = e.clientX;
+  _crop.lastY = e.clientY;
+  _cropClamp();
+  _cropDraw();
+}
+function _cropMouseUp() { _crop.isDragging = false; }
+function _cropWheel(e) {
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  const S = _crop.canvas.width;
+  // Zoom toward center of canvas
+  const prevScale = _crop.scale;
+  _crop.scale = Math.min(_crop.maxScale, Math.max(_crop.minScale, _crop.scale * delta));
+  const ratio = _crop.scale / prevScale;
+  _crop.imgX = S/2 - ratio * (S/2 - _crop.imgX);
+  _crop.imgY = S/2 - ratio * (S/2 - _crop.imgY);
+  _cropClamp();
+  _cropDraw();
+}
+
+// ---- Touch events ----
+function _cropTouchStart(e) {
+  e.preventDefault();
+  if (e.touches.length === 1) {
+    _crop.isDragging = true;
+    _crop.lastX = e.touches[0].clientX;
+    _crop.lastY = e.touches[0].clientY;
+  } else if (e.touches.length === 2) {
+    _crop.isDragging = false;
+    _crop.lastPinchDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+  }
+}
+function _cropTouchMove(e) {
+  e.preventDefault();
+  if (e.touches.length === 1 && _crop.isDragging) {
+    _crop.imgX += e.touches[0].clientX - _crop.lastX;
+    _crop.imgY += e.touches[0].clientY - _crop.lastY;
+    _crop.lastX = e.touches[0].clientX;
+    _crop.lastY = e.touches[0].clientY;
+    _cropClamp();
+    _cropDraw();
+  } else if (e.touches.length === 2) {
+    const dist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    const S = _crop.canvas.width;
+    const delta = dist / _crop.lastPinchDist;
+    const prevScale = _crop.scale;
+    _crop.scale = Math.min(_crop.maxScale, Math.max(_crop.minScale, _crop.scale * delta));
+    const ratio = _crop.scale / prevScale;
+    _crop.imgX = S/2 - ratio * (S/2 - _crop.imgX);
+    _crop.imgY = S/2 - ratio * (S/2 - _crop.imgY);
+    _crop.lastPinchDist = dist;
+    _cropClamp();
+    _cropDraw();
+  }
+}
+function _cropTouchEnd(e) {
+  if (e.touches.length === 0) _crop.isDragging = false;
+}
+
+function _cropAttachEvents() {
+  const c = _crop.canvas;
+  // Mouse
+  c.addEventListener('mousedown', _cropMouseDown);
+  window.addEventListener('mousemove', _cropMouseMove);
+  window.addEventListener('mouseup', _cropMouseUp);
+  c.addEventListener('wheel', _cropWheel, { passive: false });
+  // Touch
+  c.addEventListener('touchstart', _cropTouchStart, { passive: false });
+  c.addEventListener('touchmove', _cropTouchMove, { passive: false });
+  c.addEventListener('touchend', _cropTouchEnd);
+}
+
+function _cropDetachEvents() {
+  const c = _crop.canvas;
+  if (!c) return;
+  c.removeEventListener('mousedown', _cropMouseDown);
+  window.removeEventListener('mousemove', _cropMouseMove);
+  window.removeEventListener('mouseup', _cropMouseUp);
+  c.removeEventListener('wheel', _cropWheel);
+  c.removeEventListener('touchstart', _cropTouchStart);
+  c.removeEventListener('touchmove', _cropTouchMove);
+  c.removeEventListener('touchend', _cropTouchEnd);
+}
+
+// ---- Public API ----
 function uploadPhoto(input) {
   if (!input.files || !input.files[0]) return;
   const file = input.files[0];
-
-  // Validate file type
   if (!file.type.startsWith('image/')) {
     showToast('Please select an image file', 'error');
     return;
@@ -1902,85 +2125,59 @@ function uploadPhoto(input) {
 
   const reader = new FileReader();
   reader.onload = e => {
+    // Show modal FIRST so canvas has dimensions
     const modal = document.getElementById('crop-modal');
-    const img = document.getElementById('crop-image');
-    if (!img || !modal) return;
-
-    // Destroy previous cropper first
-    if (cropper) { cropper.destroy(); cropper = null; }
-
-    // Reset image src so onload fires even for same file
-    img.src = '';
-    img.onload = () => {
-      // Cropper.js needs the container to be visible and have dimensions
-      // before it initialises — use a small rAF delay
-      requestAnimationFrame(() => {
-        if (cropper) cropper.destroy();
-        cropper = new Cropper(img, {
-          aspectRatio: 1,          // Square crop (like Instagram)
-          viewMode: 1,             // Keep image within crop box bounds
-          dragMode: 'move',        // Drag moves the image, not the box
-          autoCropArea: 0.9,       // Crop box takes up 90% initially
-          restore: false,
-          guides: true,            // Show grid lines (rule of thirds)
-          center: true,
-          highlight: true,
-          cropBoxMovable: true,    // User can reposition the circle
-          cropBoxResizable: true,  // User can resize it
-          toggleDragModeOnDblclick: false,
-          minContainerWidth: 200,
-          minContainerHeight: 200,
-          checkOrientation: true,  // Fix EXIF rotation (portrait photos)
-          rotatable: false,
-          scalable: false,
-        });
-      });
-    };
-    img.src = e.target.result;
     modal.classList.remove('hidden');
-  };
 
-  reader.onerror = () => showToast('Failed to read image file', 'error');
+    // Small delay so browser paints the modal before we measure
+    setTimeout(() => {
+      _crop.img = null;
+      _cropInit(e.target.result);
+      _cropDetachEvents();
+      _cropAttachEvents();
+    }, 60);
+  };
+  reader.onerror = () => showToast('Failed to read image', 'error');
   reader.readAsDataURL(file);
-  input.value = ''; // Allow re-selecting same file
+  input.value = '';
 }
 
 function closeCropModal() {
   document.getElementById('crop-modal').classList.add('hidden');
-  if (cropper) { cropper.destroy(); cropper = null; }
+  _cropDetachEvents();
+  _crop.img = null;
 }
 
 async function saveCrop() {
-  if (!cropper) return showToast('No image to crop', 'error');
+  if (!_crop.img) return showToast('No image to save', 'error');
 
   const btn = document.getElementById('save-crop-btn');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner" style="width:18px;height:18px"></div> Saving...'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
 
   try {
-    const canvas = cropper.getCroppedCanvas({
-      width: 600,
-      height: 600,
-      minWidth: 256,
-      minHeight: 256,
-      fillColor: '#fff',
-      imageSmoothingEnabled: true,
-      imageSmoothingQuality: 'high',
-    });
+    // Render just the circular crop area to a 600×600 output canvas
+    const out = document.createElement('canvas');
+    out.width = 600; out.height = 600;
+    const octx = out.getContext('2d');
 
-    if (!canvas) {
-      showToast('Crop failed — please try again', 'error');
-      if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined">check_circle</span>Save Photo'; }
-      return;
-    }
+    const S = _crop.canvas.width;
+    const ratio = 600 / S;
 
-    canvas.toBlob(async (blob) => {
+    octx.drawImage(
+      _crop.img,
+      -_crop.imgX * ratio, -_crop.imgY * ratio,
+      _crop.imgW * _crop.scale * ratio,
+      _crop.imgH * _crop.scale * ratio
+    );
+
+    out.toBlob(async (blob) => {
       if (!blob) {
         showToast('Could not process image', 'error');
         if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined">check_circle</span>Save Photo'; }
         return;
       }
 
-      // Optimistic preview — show the cropped image immediately
+      // Optimistic preview
       const tmpUrl = URL.createObjectURL(blob);
       const heroImg = document.querySelector('.profile-hero img');
       if (heroImg) heroImg.src = tmpUrl;
@@ -2000,7 +2197,7 @@ async function saveCrop() {
         renderProfile();
       } catch (e) {
         showToast(e.message, 'error');
-        renderProfile(); // Revert optimistic update
+        renderProfile();
       }
     }, 'image/jpeg', 0.92);
 
@@ -2009,6 +2206,7 @@ async function saveCrop() {
     if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined">check_circle</span>Save Photo'; }
   }
 }
+
 
 function doLogout() {
   if (!confirm('Are you sure you want to logout?')) return;
